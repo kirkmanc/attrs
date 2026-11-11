@@ -1214,3 +1214,89 @@ def test_slots_unpickle_is_backward_compatible(frozen):
     a_unpickled = pickle.loads(a_pickled)
 
     assert a_unpickled == a
+
+
+class TestCachedPropertiesMapping:
+    """
+    Tests for the public __attrs_cached_properties__ mapping on slotted
+    classes.
+    """
+
+    def test_maps_names_to_original_functions(self):
+        """
+        The mapping holds the original, undecorated functions under the
+        names of the cached properties.
+        """
+
+        def f_func(self):
+            return self.x
+
+        def g_func(self):
+            return self.x * 2
+
+        @attrs.define
+        class A:
+            x: int
+
+            f = functools.cached_property(f_func)
+            g = functools.cached_property(g_func)
+
+        assert {"f": f_func, "g": g_func} == dict(
+            A.__attrs_cached_properties__
+        )
+
+    def test_reading_does_not_evaluate(self):
+        """
+        Looking at the mapping doesn't call the wrapped functions, and the
+        cached properties keep working afterwards.
+        """
+        calls = []
+
+        @attrs.define
+        class A:
+            x: int
+
+            @functools.cached_property
+            def f(self):
+                calls.append(1)
+                return self.x
+
+        func = A.__attrs_cached_properties__["f"]
+
+        assert [] == calls
+        assert "f" == func.__name__
+
+        a = A(42)
+
+        assert 42 == a.f
+        assert 42 == a.f
+        assert [1] == calls
+
+    def test_read_only(self):
+        """
+        The mapping can't be mutated, so it can't break attribute dispatch.
+        """
+
+        @attrs.define
+        class A:
+            x: int
+
+            @functools.cached_property
+            def f(self):
+                return self.x
+
+        with pytest.raises(TypeError):
+            A.__attrs_cached_properties__["f"] = lambda self: 0
+
+        assert 1 == A(1).f
+
+    def test_empty_without_cached_properties(self):
+        """
+        Slotted classes without cached properties get an empty mapping.
+        """
+
+        @attrs.define
+        class A:
+            x: int
+
+        assert {} == dict(A.__attrs_cached_properties__)

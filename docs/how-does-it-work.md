@@ -114,6 +114,31 @@ Getting this working is achieved by:
 
 For most users, this should mean that it works transparently.
 
+Since the original methods are removed from the class body, tools that introspect classes (like documentation generators) can't find them anymore.
+To help with that, every slotted class has a read-only `__attrs_cached_properties__` mapping from the names of the cached properties defined on that class to their original functions:
+
+```{doctest}
+>>> import functools
+>>> from attrs import define
+>>> @define
+... class C:
+...     x: int
+...
+...     @functools.cached_property
+...     def doubled(self):
+...         "Twice x."
+...         return self.x * 2
+>>> C.__attrs_cached_properties__["doubled"].__doc__
+'Twice x.'
+```
+
+Only cached properties defined on the class itself are listed.
+To also get inherited ones, walk the MRO and use `vars(klass).get("__attrs_cached_properties__", {})` for each class.
+Dict classes leave {func}`functools.cached_property` alone, so they don't get this attribute.
+
+:::{versionadded} 26.2.0
+:::
+
 :::{note}
 The implementation does not guarantee that the wrapped method is called only once in multi-threaded usage.
 This matches the implementation of `cached_property` in Python 3.12.

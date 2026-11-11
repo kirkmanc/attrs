@@ -917,6 +917,9 @@ class _ClassBuilder:
             for name, cached_prop in cd.items()
             if isinstance(cached_prop, cached_property)
         }
+        cd["__attrs_cached_properties__"] = types.MappingProxyType(
+            cached_properties
+        )
 
         # Collect methods with a `__class__` reference that are shadowed in the new class.
         # To know to update them.
